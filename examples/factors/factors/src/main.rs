@@ -29,6 +29,7 @@ type ApiType = OnlineClient<
 #[tokio::main]
 async fn main() {
 	let api = OnlineClient::<PolkadotConfig>::new().await.unwrap();
+	// This is the well-known //Alice key. Don't use in a real application
 	let restored_key = SubxtPair::from_string(
 		"0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a",
 		None,
@@ -44,13 +45,7 @@ async fn main() {
 			&substrate_node::tx()
 				.prover_mgmt()
 				// Send the serialized elf file
-				// .upload_program(FACTORS_ID, bincode::serialize(FACTORS_ELF).unwrap()),
-				.upload_program(
-					FACTORS_ID,
-					// bincode::serialize(FACTORS_ELF).unwrap()
-					// BoundedVec::try_from(bincode::serialize(FACTORS_ELF).unwrap()),
-					serialized_program,
-				),
+				.upload_program(FACTORS_ID, serialized_program),
 			&signer,
 		)
 		.await
