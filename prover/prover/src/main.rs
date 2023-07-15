@@ -1,5 +1,7 @@
-use crate::substrate_node::runtime_types::bounded_collections::bounded_vec::BoundedVec;
-// use futures_util::stream::stream::StreamExt;
+use crate::substrate_node::{
+	prover_mgmt::Event, runtime_types::bounded_collections::bounded_vec::BoundedVec,
+};
+use codec::Decode;
 use futures_util::StreamExt;
 use methods::{PROVE_ELF, PROVE_ID};
 use risc0_zkvm::{
@@ -9,7 +11,9 @@ use risc0_zkvm::{
 use std::{fs, time::Duration};
 use subxt::{
 	config::WithExtrinsicParams,
+	events::StaticEvent,
 	ext::{
+		scale_value::Composite,
 		sp_core::{
 			sr25519::{Pair as SubxtPair, Public, Signature},
 			Pair as SubxtPairT,
@@ -19,6 +23,12 @@ use subxt::{
 	tx::{BaseExtrinsicParams, PairSigner, PlainTip},
 	OnlineClient, PolkadotConfig, SubstrateConfig,
 };
+use tokio::task;
+
+impl StaticEvent for Event {
+	const PALLET: &'static str = "ProverMgmt";
+	const EVENT: &'static str = "ProofRequested";
+}
 
 // // Runtime types, etc
 #[subxt::subxt(runtime_metadata_path = "./metadata.scale")]
@@ -42,6 +52,7 @@ async fn get_program(
 	query_result
 }
 
+// Update this to take the bytes retrieved from onchain stored program
 fn create_proof() -> MemoryImage {
 	let program = Program::load_elf(PROVE_ELF, MEM_SIZE as u32).unwrap();
 	let image = MemoryImage::new(&program, PAGE_SIZE as u32).unwrap();
@@ -93,18 +104,30 @@ async fn listen_for_event_then_prove() {
 			for evt in events.iter() {
 				let evt = evt.unwrap();
 
+				// let decoded: Event = evt.as_event().unwrap().unwrap();
+
 				let pallet_name = evt.pallet_name();
 				let event_name = evt.variant_name();
-
-				if pallet_name == "ProverMgmt" && event_name == "ProofRequested" {
-					// Prove here
-					println!("HERE");
-				}
-
 				let event_values = evt.field_values().unwrap();
 
 				println!("        {pallet_name}_{event_name}");
 				println!("          {}", event_values);
+				// The event requirements which indicate someone requested a proof be generated for
+				// some image
+				if pallet_name == "ProverMgmt" && event_name == "ProofRequested" {
+					// TODO: How to decode event? Get `image_id` out of event field
+					// let decoded: Event = Event::decode(&mut evt.bytes()).unwrap();
+					// let decoded: Event = evt.as_event().unwrap().unwrap();
+
+					// Manually hard-code for now until I figure out the above issue
+					let image_id = [1; 32];
+
+					// Prove here
+					task::spawn(async {
+						// Pass any args
+						// create_proof()
+					});
+				}
 			}
 		}
 	}
