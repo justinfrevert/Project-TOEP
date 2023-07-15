@@ -4,7 +4,6 @@ The Substrate prover is an offchain, long-running service whose primary responsi
 
 The prover listens for the ProofRequested event emitted from the `prover_mgmt` pallet. If received, it takes any arguments passed to it and starts to prove the requested image id. Once done, it should call back to the pallet with the image id and the proof. The prover lives in `./prover`.
 
-
 ## Usage instructions:
 ### Start the chain
 Start the chain by building the code `cargo build --release`, and starting the node: `./target/release/node-template --dev`.
