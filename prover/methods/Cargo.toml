@@ -1,0 +1,11 @@
+[package]
+name = "methods"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+risc0-build = { version = "0.14.0", default-features = false, git = "https://github.com/risc0/risc0", rev = "d83c7fef80d0ebb87bc86567447efee633a24c4e" }
+
+[package.metadata.risc0]
+methods = ["guest"]
+
