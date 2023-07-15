@@ -101,34 +101,51 @@ async fn listen_for_event_then_prove() {
 			let events = ext.events().await.unwrap();
 			let bytes_hex = format!("0x{}", hex::encode(ext.bytes()));
 
-			for evt in events.iter() {
-				let evt = evt.unwrap();
+			let event = events.find_first::<Event>().expect(
+				"Failed to decode
+				Event",
+			);
 
-				// let decoded: Event = evt.as_event().unwrap().unwrap();
-
-				let pallet_name = evt.pallet_name();
-				let event_name = evt.variant_name();
-				let event_values = evt.field_values().unwrap();
-
-				println!("        {pallet_name}_{event_name}");
-				println!("          {}", event_values);
-				// The event requirements which indicate someone requested a proof be generated for
-				// some image
-				if pallet_name == "ProverMgmt" && event_name == "ProofRequested" {
-					// TODO: How to decode event? Get `image_id` out of event field
-					// let decoded: Event = Event::decode(&mut evt.bytes()).unwrap();
-					// let decoded: Event = evt.as_event().unwrap().unwrap();
-
-					// Manually hard-code for now until I figure out the above issue
-					let image_id = [1; 32];
-
-					// Prove here
-					task::spawn(async {
-						// Pass any args
-						// create_proof()
-					});
-				}
+			match event {
+				Some(ev) => match ev {
+					Event::ProofRequested { image_id, args } => {
+						println!("image_id: {:?}, args: {:?}", image_id, args);
+					},
+					Event::ProgramUploaded { image_id } => {
+						todo!()
+					},
+				},
+				None => {},
 			}
+
+			// for evt in events.iter() {
+			// 	let evt = evt.unwrap();
+
+			// 	// let decoded: Event = evt.as_event().unwrap().unwrap();
+
+			// 	let pallet_name = evt.pallet_name();
+			// 	let event_name = evt.variant_name();
+			// 	let event_values = evt.field_values().unwrap();
+
+			// 	println!("        {pallet_name}_{event_name}");
+			// 	println!("          {}", event_values);
+			// 	// The event requirements which indicate someone requested a proof be generated for
+			// 	// some image
+			// 	if pallet_name == "ProverMgmt" && event_name == "ProofRequested" {
+			// 		// TODO: How to decode event? Get `image_id` out of event field
+			// 		// let decoded: Event = Event::decode(&mut evt.bytes()).unwrap();
+			// 		// let decoded: Event = evt.as_event().unwrap().unwrap();
+
+			// 		// Manually hard-code for now until I figure out the above issue
+			// 		let image_id = [1; 32];
+
+			// 		// Prove here
+			// 		task::spawn(async {
+			// 			// Pass any args
+			// 			// create_proof()
+			// 		});
+			// 	}
+			// }
 		}
 	}
 }
