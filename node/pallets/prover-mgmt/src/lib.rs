@@ -19,13 +19,15 @@ pub use weights::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{inherent::Vec, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 	use risc0_zkvm::{serde::from_slice, sha::Digest, SegmentReceipt, SessionReceipt};
 
-	type ImageId = [u8; 32];
+	type ImageId = [u32; 8];
 
 	#[pallet::pallet]
+	// TODO: Needs proper BoundedVec encoding from offchain in order to get bounded types working
+	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -42,10 +44,15 @@ pub mod pallet {
 		type MaxProofLength: Get<u32>;
 	}
 
+	// #[pallet::storage]
+	// /// Store for all programs
+	// pub(super) type Programs<T: Config> =
+	// 	StorageMap<_, Blake2_128Concat, ImageId, BoundedVec<u8, T::MaxProgramLength>, OptionQuery>;
+
 	#[pallet::storage]
 	/// Store for all programs
 	pub(super) type Programs<T: Config> =
-		StorageMap<_, Blake2_128Concat, ImageId, BoundedVec<u8, T::MaxProgramLength>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ImageId, Vec<u8>, OptionQuery>;
 
 	#[pallet::storage]
 	/// Store Some(proof), if the program's proof was verified
@@ -68,6 +75,8 @@ pub mod pallet {
 	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Tried to upload a program which already exists
+		ProgramAlreadyExists,
 		/// Tried to verify a proof but the program did not exist
 		ProgramDoesNotExist,
 		/// Could not verify proof
@@ -89,9 +98,12 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			// Todo: find how to verify image id
 			image_id: ImageId,
-			program: BoundedVec<u8, T::MaxProgramLength>,
+			// The bincode-serialized program
+			// TODO: program: BoundedVec<u8, T::MaxProgramLength>,
+			program: Vec<u8>,
 		) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
+			ensure!(!Programs::<T>::contains_key(image_id), Error::<T>::ProgramAlreadyExists);
 
 			<Programs<T>>::insert(image_id, program);
 
