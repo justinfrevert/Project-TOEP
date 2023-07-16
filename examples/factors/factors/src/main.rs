@@ -39,7 +39,11 @@ async fn main() {
 
 	let serialized_program = bincode::serialize(FACTORS_ELF).unwrap();
 
-	println!("Sending program. Image id: {:?}", FACTORS_ID);
+	println!(
+		"Sending program. Image id: {:?}",
+		hex::encode(bincode::serialize(&FACTORS_ID).unwrap())
+	);
+
 	api.tx()
 		.sign_and_submit_then_watch_default(
 			&substrate_node::tx()

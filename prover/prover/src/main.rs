@@ -1,6 +1,7 @@
 use crate::substrate_node::{
 	prover_mgmt::Event, runtime_types::bounded_collections::bounded_vec::BoundedVec,
 };
+use clap::Parser;
 use codec::Decode;
 use futures_util::StreamExt;
 use methods::{PROVE_ELF, PROVE_ID};
@@ -24,11 +25,6 @@ use subxt::{
 	OnlineClient, PolkadotConfig, SubstrateConfig,
 };
 use tokio::task;
-
-impl StaticEvent for Event {
-	const PALLET: &'static str = "ProverMgmt";
-	const EVENT: &'static str = "ProofRequested";
-}
 
 // // Runtime types, etc
 #[subxt::subxt(runtime_metadata_path = "./metadata.scale")]
@@ -56,17 +52,12 @@ async fn get_program(
 // Take a request for a proof, find the stored program, prove it, and return the proof to the
 // extrinsic
 // Update this to take the bytes retrieved from onchain stored program
-async fn fulfill_proof_request(api: &ApiType, image_id: ImageId) -> SessionReceipt {
+async fn prove_program_execution(onchain_program: Vec<u8>) -> SessionReceipt {
 	// let program = Program::load_elf(PROVE_ELF, MEM_SIZE as u32).unwrap();
 	// let image = MemoryImage::new(&program, PAGE_SIZE as u32).unwrap();
 	let env = ExecutorEnv::builder()
 		// TODO: conditionally add inputs if there are any args
 		.build();
-	println!("Checking for program from onchain");
-
-	let onchain_program = get_program(api, image_id).await.unwrap().unwrap();
-
-	println!("Got program from onchain: {:?}", image_id);
 
 	let mut executor = Executor::from_elf(
 		env.clone(),
@@ -82,70 +73,52 @@ async fn fulfill_proof_request(api: &ApiType, image_id: ImageId) -> SessionRecei
 	receipt
 }
 
-async fn listen_for_event_then_prove() {
-	// TODO: get node url here
-	let api = OnlineClient::<PolkadotConfig>::new().await.unwrap();
+async fn upload_proof(api: ApiType, image_id: ImageId, session_receipt: SessionReceipt) {
+	api.tx()
+		.sign_and_submit_then_watch_default(
+			&substrate_node::tx()
+				.prover_mgmt()
+				// Send the serialized elf file
+				.store_and_verify_proof(image_id, session_receipt),
+			&signer,
+		)
+		.await
+		.unwrap()
+		.wait_for_finalized()
+		.await
+		.unwrap();
+	println!("Done");
+}
 
-	let mut blocks_sub = api.blocks().subscribe_finalized().await.unwrap();
-
-	// For each block, print a bunch of information about it:
-	while let Some(block) = blocks_sub.next().await {
-		let block = block.unwrap();
-
-		let block_number = block.header().number;
-		let block_hash = block.hash();
-
-		println!("Block #{block_number}:");
-		println!("  Hash: {block_hash}");
-		println!("  Extrinsics:");
-
-		// Log each of the extrinsic with it's associated events:
-		let body = block.body().await.unwrap();
-		for ext in body.extrinsics() {
-			let idx = ext.index();
-			let events = ext.events().await.unwrap();
-			let bytes_hex = format!("0x{}", hex::encode(ext.bytes()));
-
-			for evt in events.iter() {
-				let evt = evt.unwrap();
-
-				let pallet_name = evt.pallet_name();
-				let event_name = evt.variant_name();
-				let event_values = evt.field_values().unwrap();
-
-				// 	// The event requirements which indicate someone requested a proof be generated
-				// for 	// some image
-				if pallet_name == "ProverMgmt" && event_name == "ProofRequested" {
-					// TODO: How to decode event? Get `image_id` out of event field
-					// let decoded: Event = Event::decode(&mut evt.bytes()).unwrap();
-					// let decoded: Event = evt.as_event().unwrap().unwrap();
-
-					// Manually hard-code the example image idfor now until I figure out the above
-					// issue
-					let image_id = [
-						4174907676, 3825410137, 3587477267, 2620170356, 1506364987, 2428555902,
-						33598174, 3445310690,
-					];
-					println!("Fulfilling request...");
-					fulfill_proof_request(&api, image_id).await;
-					// task::spawn(async move {
-					// 	fulfill_proof_request(&api.clone(), image_id.clone()).await;
-					// });
-				}
-			}
-		}
-	}
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+	/// The hex-encoded, bincode-serialized image id of the onchain program to prove
+	#[arg(short, long)]
+	image_id: String,
 }
 
 #[tokio::main]
 async fn main() {
-	// listen_for_event_then_prove().await;
-	let image_id = [
-		4174907676, 3825410137, 3587477267, 2620170356, 1506364987, 2428555902, 33598174,
-		3445310690,
-	];
-	println!("Fulfilling request...");
-	let api = OnlineClient::<PolkadotConfig>::new().await.unwrap();
+	let args = Args::parse();
 
-	fulfill_proof_request(&api, image_id).await;
+	let hex_decoded = hex::decode(&args.image_id).unwrap();
+
+	let image_id = bincode::deserialize(&hex_decoded).unwrap();
+
+	// image id
+	let api = OnlineClient::<PolkadotConfig>::new().await.unwrap();
+	// This is the well-known //Alice key. Don't use in a real application
+	let restored_key = SubxtPair::from_string(
+		"0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a",
+		None,
+	)
+	.unwrap();
+	// listen_for_event_then_prove().await;
+	let program = get_program(&api, image_id).await;
+	let session_receipt =
+		prove_program_execution(&api, program.unwrap().expect("Onchain program should exist"))
+			.await;
+
+	upload_proof(&api).await;
 }
