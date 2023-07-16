@@ -41,7 +41,7 @@ async fn main() {
 	let deserialized_debug: &[u8] = bincode::deserialize(&serialized_program).unwrap();
 	println!("Uploaded for image id {:?}", FACTORS_ID);
 
-	api.tx()
+	let events = api.tx()
 		.sign_and_submit_then_watch_default(
 			&substrate_node::tx()
 				.prover_mgmt()
@@ -51,7 +51,25 @@ async fn main() {
 		)
 		.await
 		.unwrap()
-		.wait_for_finalized()
+		.wait_for_finalized_success()
 		.await
 		.unwrap();
+	let event = events.find_first::<substrate_node::prover_mgmt::events::ProgramUploaded>().expect("Fail to decode event").expect("failed to find event");
+	println!("{:?}", event);
+	let parameters = vec![2_u8, 4_u8];
+	let events = api.tx()
+		.sign_and_submit_then_watch_default(
+			&substrate_node::tx()
+				.prover_mgmt()
+				// Send the serialized elf file
+				.request_proof(FACTORS_ID, BoundedVec(parameters)),
+			&signer,
+		)
+		.await
+		.unwrap()
+		.wait_for_finalized_success()
+		.await
+		.unwrap();
+	let event = events.find_first::<substrate_node::prover_mgmt::events::ProofRequested>().expect("Fail to decode event").expect("failed to find event");
+	println!("{:?}", event);
 }

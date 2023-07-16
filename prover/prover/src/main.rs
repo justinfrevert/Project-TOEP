@@ -25,11 +25,6 @@ use subxt::{
 };
 use tokio::task;
 
-impl StaticEvent for Event {
-	const PALLET: &'static str = "ProverMgmt";
-	const EVENT: &'static str = "ProofRequested";
-}
-
 // // Runtime types, etc
 #[subxt::subxt(runtime_metadata_path = "./metadata.scale")]
 pub mod substrate_node {}
@@ -103,33 +98,16 @@ async fn listen_for_event_then_prove() {
 		let body = block.body().await.unwrap();
 		for ext in body.extrinsics() {
 			let idx = ext.index();
-			let events = ext.events().await.unwrap();
+			let events_details = ext.events().await.unwrap();
 			let bytes_hex = format!("0x{}", hex::encode(ext.bytes()));
-
-			for evt in events.iter() {
-				let evt = evt.unwrap();
-
-				let pallet_name = evt.pallet_name();
-				let event_name = evt.variant_name();
-				let event_values = evt.field_values().unwrap();
-
-				// 	// The event requirements which indicate someone requested a proof be generated
-				// for 	// some image
-				if pallet_name == "ProverMgmt" && event_name == "ProofRequested" {
-					// TODO: How to decode event? Get `image_id` out of event field
-					// let decoded: Event = Event::decode(&mut evt.bytes()).unwrap();
-					// let decoded: Event = evt.as_event().unwrap().unwrap();
-
-					// Manually hard-code the example image idfor now until I figure out the above
-					// issue
-					let image_id = [2009474930, 1239658189, 1743598506, 551810562, 1028100433, 4217546152, 906775995, 87362421];
-					println!("Fulfilling request...");
-					fulfill_proof_request(&api, image_id).await;
-					// task::spawn(async move {
-					// 	fulfill_proof_request(&api.clone(), image_id.clone()).await;
-					// });
+                let events = events_details.find::<substrate_node::prover_mgmt::events::ProgramUploaded>();
+				for event in events {
+					println!("ProgramUploaded Event {:?}", event);
 				}
-			}
+                let events = events_details.find::<substrate_node::prover_mgmt::events::ProofRequested>();
+				for event in events {
+					println!("ProofRequested Event {:?}", event);
+				}
 		}
 	}
 }
