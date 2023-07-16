@@ -38,8 +38,9 @@ async fn main() {
 	let signer = PairSigner::new(restored_key);
 
 	let serialized_program = bincode::serialize(FACTORS_ELF).unwrap();
+	let deserialized_debug: &[u8] = bincode::deserialize(&serialized_program).unwrap();
+	println!("Uploaded for image id {:?}", FACTORS_ID);
 
-	println!("Sending program. Image id: {:?}", FACTORS_ID);
 	api.tx()
 		.sign_and_submit_then_watch_default(
 			&substrate_node::tx()
@@ -53,5 +54,4 @@ async fn main() {
 		.wait_for_finalized()
 		.await
 		.unwrap();
-	println!("Done");
 }

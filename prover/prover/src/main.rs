@@ -122,10 +122,7 @@ async fn listen_for_event_then_prove() {
 
 					// Manually hard-code the example image idfor now until I figure out the above
 					// issue
-					let image_id = [
-						4174907676, 3825410137, 3587477267, 2620170356, 1506364987, 2428555902,
-						33598174, 3445310690,
-					];
+					let image_id = [2009474930, 1239658189, 1743598506, 551810562, 1028100433, 4217546152, 906775995, 87362421];
 					println!("Fulfilling request...");
 					fulfill_proof_request(&api, image_id).await;
 					// task::spawn(async move {
@@ -139,13 +136,5 @@ async fn listen_for_event_then_prove() {
 
 #[tokio::main]
 async fn main() {
-	// listen_for_event_then_prove().await;
-	let image_id = [
-		4174907676, 3825410137, 3587477267, 2620170356, 1506364987, 2428555902, 33598174,
-		3445310690,
-	];
-	println!("Fulfilling request...");
-	let api = OnlineClient::<PolkadotConfig>::new().await.unwrap();
-
-	fulfill_proof_request(&api, image_id).await;
+	listen_for_event_then_prove().await;
 }
