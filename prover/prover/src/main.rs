@@ -6,8 +6,8 @@ use codec::Decode;
 use futures_util::StreamExt;
 use methods::{PROVE_ELF, PROVE_ID};
 use risc0_zkvm::{
-	prove::Prover, serde::to_vec, Executor, ExecutorEnv, MemoryImage, Program, SessionReceipt,
-	MEM_SIZE, PAGE_SIZE,
+	prove::Prover, serde::to_vec, Executor, ExecutorEnv, MemoryImage, Program, SegmentReceipt,
+	SessionReceipt, MEM_SIZE, PAGE_SIZE,
 };
 use std::{fs, time::Duration};
 use subxt::{
@@ -49,10 +49,8 @@ async fn get_program(
 	query_result
 }
 
-// Take a request for a proof, find the stored program, prove it, and return the proof to the
-// extrinsic
-// Update this to take the bytes retrieved from onchain stored program
-async fn prove_program_execution(onchain_program: Vec<u8>) -> SessionReceipt {
+// Prove the program which was given as serialized bytes
+fn prove_program_execution(onchain_program: Vec<u8>) -> SessionReceipt {
 	// let program = Program::load_elf(PROVE_ELF, MEM_SIZE as u32).unwrap();
 	// let image = MemoryImage::new(&program, PAGE_SIZE as u32).unwrap();
 	let env = ExecutorEnv::builder()
@@ -74,12 +72,32 @@ async fn prove_program_execution(onchain_program: Vec<u8>) -> SessionReceipt {
 }
 
 async fn upload_proof(api: ApiType, image_id: ImageId, session_receipt: SessionReceipt) {
+	let substrate_session_receipt = session_receipt
+		.segments
+		.into_iter()
+		.map(|SegmentReceipt { seal, index }| (seal, index))
+		.collect();
+
+	// This is the well-known //Alice key. TODO: Use the key passed through cli to represent the
+	// prover
+	let restored_key = SubxtPair::from_string(
+		"0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a",
+		None,
+	)
+	.unwrap();
+
+	let signer = PairSigner::new(restored_key);
+
 	api.tx()
 		.sign_and_submit_then_watch_default(
 			&substrate_node::tx()
 				.prover_mgmt()
-				// Send the serialized elf file
-				.store_and_verify_proof(image_id, session_receipt),
+				// Upload the proof
+				.store_and_verify_proof(
+					image_id,
+					substrate_session_receipt,
+					session_receipt.journal,
+				),
 			&signer,
 		)
 		.await
@@ -117,8 +135,7 @@ async fn main() {
 	// listen_for_event_then_prove().await;
 	let program = get_program(&api, image_id).await;
 	let session_receipt =
-		prove_program_execution(&api, program.unwrap().expect("Onchain program should exist"))
-			.await;
+		prove_program_execution(program.unwrap().expect("Onchain program should exist"));
 
-	upload_proof(&api).await;
+	upload_proof(api, image_id, session_receipt).await;
 }

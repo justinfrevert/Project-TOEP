@@ -10,10 +10,11 @@ The prover listens for the ProofRequested event emitted from the `prover_mgmt` p
 Start the chain by building the code `cargo build --release`, and starting the node: `./target/release/node-template --dev`.
 
 ### Upload/Write your own program
-See `./examples`. In that directory, run `cargo run` to prepare and upload the hello world example program to the chain.
+See `./examples` for an example of a provable program. To test uploading the program to the chain, run:
+```cargo run```
+It will return the `image id`, which is handy for proving later
 
-### Start prover node
-In `./prover`, run `cargo run`. The prover will continuously listen to the events emitted onchain.
-
-### Request Proof
-Call the `prover_mgmt.request_proof` extrinsic with your program's image id(as of now, this is just hardcoded in the prover). The prover will respond to this event by receiving the elf, and proving its execution. 
+### Prover
+Prover nodes can fulfill onchain requests for proofs. The included proving cli application in `./prover` allows someone to pass an `image_id` of an onchain program, retrieve it, prove it, and upload the resulting proof to fulfill the request. To test, pass a hex-encoded, bincode-serialized image id(just copy the output from the `./examples` local execution)
+```
+cargo run -- --image-id {your image id}

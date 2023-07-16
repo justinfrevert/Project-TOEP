@@ -57,7 +57,7 @@ pub mod pallet {
 	#[pallet::storage]
 	/// Store Some(proof), if the program's proof was verified
 	pub(super) type ProofsByImage<T: Config> =
-		StorageMap<_, Blake2_128Concat, ImageId, BoundedVec<u32, T::MaxProofLength>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ImageId, Vec<(Vec<u32>, u32)>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -133,19 +133,24 @@ pub mod pallet {
 		pub fn store_and_verify_proof(
 			origin: OriginFor<T>,
 			image_id: ImageId,
-			proof_vec: BoundedVec<u32, T::MaxProofLength>,
+			receipt_data: Vec<(Vec<u32>, u32)>,
+			journal: Vec<u8>,
 		) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
 
 			ensure!(Programs::<T>::get(image_id).is_some(), Error::<T>::ProgramDoesNotExist);
 
-			let receipt: SessionReceipt =
-				from_slice(&proof_vec).map_err(|_| Error::<T>::ProofInvalid)?;
+			let segments: Vec<SegmentReceipt> = receipt_data
+				.clone()
+				.into_iter()
+				.map(|(seal, index)| SegmentReceipt { seal, index })
+				.collect();
 
+			let receipt = SessionReceipt { segments, journal };
 			receipt.verify(image_id).map_err(|_| Error::<T>::ProofNotVerified)?;
 
 			// TODO: Also see if there is some image id verification
-			ProofsByImage::<T>::insert(image_id, proof_vec);
+			ProofsByImage::<T>::insert(image_id, receipt_data);
 			Ok(())
 		}
 	}

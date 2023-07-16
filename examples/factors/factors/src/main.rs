@@ -40,7 +40,7 @@ async fn main() {
 	let serialized_program = bincode::serialize(FACTORS_ELF).unwrap();
 
 	println!(
-		"Sending program. Image id: {:?}",
+		"Uploading program. Image id: {:?}",
 		hex::encode(bincode::serialize(&FACTORS_ID).unwrap())
 	);
 
@@ -57,5 +57,5 @@ async fn main() {
 		.wait_for_finalized()
 		.await
 		.unwrap();
-	println!("Done");
+	println!("Upload complete");
 }
