@@ -19,7 +19,11 @@ pub use weights::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{inherent::Vec, traits::{BalanceStatus, Currency, ReservableCurrency}, pallet_prelude::*};
+	use frame_support::{
+		inherent::Vec,
+		pallet_prelude::*,
+		traits::{BalanceStatus, Currency, ReservableCurrency},
+	};
 	use frame_system::pallet_prelude::*;
 	use risc0_zkvm::{SegmentReceipt, SessionReceipt};
 
@@ -31,13 +35,13 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	pub type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type Currency: Currency<<Self as frame_system::Config>::AccountId>
-		+ ReservableCurrency<Self::AccountId>;
+			+ ReservableCurrency<Self::AccountId>;
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Type representing the weight of this pallet
@@ -48,7 +52,6 @@ pub mod pallet {
 		// Max Length of proofs
 		type MaxProofLength: Get<u32>;
 	}
-
 
 	#[derive(Clone, Debug, Decode, Encode, PartialEq, Eq, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
@@ -63,11 +66,6 @@ pub mod pallet {
 	/// Store for all programs
 	pub(super) type Programs<T: Config> =
 		StorageMap<_, Blake2_128Concat, ImageId, Vec<u8>, OptionQuery>;
-
-	// #[pallet::storage]
-	// /// Requests which have been submitted for `ImageId`, unique per set of args + image id
-	// pub(super) type ProofRequests<T: Config> =
-	// 	StorageMap<_, Blake2_128Concat, ImageId, Vec<Vec<u32>>, OptionQuery>;
 
 	#[pallet::storage]
 	/// Requests which have been submitted for `ImageId`, unique per set of args + image id
@@ -138,17 +136,16 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			image_id: ImageId,
 			args: Vec<Vec<u32>>,
-			reward: BalanceOf<T>
+			reward: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			T::Currency::reserve(&who, reward)?;
 
-			ProofRequests::<T>::insert(image_id, ProofRequest {
-				requester: who,
-				reward,
-				args: args.clone()
-			});
+			ProofRequests::<T>::insert(
+				image_id,
+				ProofRequest { requester: who, reward, args: args.clone() },
+			);
 
 			Self::deposit_event(Event::ProofRequested { image_id, args });
 
@@ -168,9 +165,13 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(Programs::<T>::get(image_id).is_some(), Error::<T>::ProgramDoesNotExist);
 
-			// If a request for proof of the program exists, the submitter needs to receive the designated reward
+			// If a request for proof of the program exists, the submitter needs to receive the
+			// designated reward
 			if let Some(proof_request) = ProofRequests::<T>::get(image_id) {
-				ensure!(&who != &proof_request.requester, Error::<T>::AttemptedFullfilmentOfOwnRequest);
+				ensure!(
+					&who != &proof_request.requester,
+					Error::<T>::AttemptedFullfilmentOfOwnRequest
+				);
 				T::Currency::repatriate_reserved(
 					&proof_request.requester,
 					&who,
