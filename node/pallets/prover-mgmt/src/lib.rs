@@ -19,13 +19,15 @@ pub use weights::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{inherent::Vec, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
-	use risc0_zkvm::{serde::from_slice, sha::Digest, SegmentReceipt, SessionReceipt};
+	use risc0_zkvm::{SegmentReceipt, SessionReceipt};
 
-	type ImageId = [u8; 32];
+	type ImageId = [u32; 8];
 
 	#[pallet::pallet]
+	// TODO: Needs proper BoundedVec encoding from offchain in order to get bounded types working
+	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -45,19 +47,23 @@ pub mod pallet {
 	#[pallet::storage]
 	/// Store for all programs
 	pub(super) type Programs<T: Config> =
-		StorageMap<_, Blake2_128Concat, ImageId, BoundedVec<u8, T::MaxProgramLength>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ImageId, Vec<u8>, OptionQuery>;
+
+	#[pallet::storage]
+	pub(super) type ProofRequests<T: Config> =
+		StorageMap<_, Blake2_128Concat, ImageId, Vec<Vec<u32>>, OptionQuery>;
 
 	#[pallet::storage]
 	/// Store Some(proof), if the program's proof was verified
 	pub(super) type ProofsByImage<T: Config> =
-		StorageMap<_, Blake2_128Concat, ImageId, BoundedVec<u32, T::MaxProofLength>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ImageId, Vec<(Vec<u32>, u32)>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		ProofRequested {
 			image_id: ImageId,
-			args: BoundedVec<u8, T::MaxArgsLength>,
+			args: Vec<Vec<u32>>,
 		},
 		/// A program was uploaded
 		ProgramUploaded {
@@ -68,6 +74,8 @@ pub mod pallet {
 	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Tried to upload a program which already exists
+		ProgramAlreadyExists,
 		/// Tried to verify a proof but the program did not exist
 		ProgramDoesNotExist,
 		/// Could not verify proof
@@ -89,9 +97,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			// Todo: find how to verify image id
 			image_id: ImageId,
-			program: BoundedVec<u8, T::MaxProgramLength>,
+			// The bincode-serialized program
+			program: Vec<u8>,
 		) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
+			ensure!(!Programs::<T>::contains_key(image_id), Error::<T>::ProgramAlreadyExists);
 
 			<Programs<T>>::insert(image_id, program);
 
@@ -105,10 +115,11 @@ pub mod pallet {
 		pub fn request_proof(
 			origin: OriginFor<T>,
 			image_id: ImageId,
-			args: BoundedVec<u8, T::MaxArgsLength>,
+			args: Vec<Vec<u32>>,
 		) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
 
+			ProofRequests::<T>::insert(image_id, args.clone());
 			Self::deposit_event(Event::ProofRequested { image_id, args });
 
 			Ok(())
@@ -121,19 +132,24 @@ pub mod pallet {
 		pub fn store_and_verify_proof(
 			origin: OriginFor<T>,
 			image_id: ImageId,
-			proof_vec: BoundedVec<u32, T::MaxProofLength>,
+			receipt_data: Vec<(Vec<u32>, u32)>,
+			journal: Vec<u8>,
 		) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
 
 			ensure!(Programs::<T>::get(image_id).is_some(), Error::<T>::ProgramDoesNotExist);
 
-			let receipt: SessionReceipt =
-				from_slice(&proof_vec).map_err(|_| Error::<T>::ProofInvalid)?;
+			let segments: Vec<SegmentReceipt> = receipt_data
+				.clone()
+				.into_iter()
+				.map(|(seal, index)| SegmentReceipt { seal, index })
+				.collect();
 
+			let receipt = SessionReceipt { segments, journal };
 			receipt.verify(image_id).map_err(|_| Error::<T>::ProofNotVerified)?;
 
 			// TODO: Also see if there is some image id verification
-			ProofsByImage::<T>::insert(image_id, proof_vec);
+			ProofsByImage::<T>::insert(image_id, receipt_data);
 			Ok(())
 		}
 	}
