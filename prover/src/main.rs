@@ -28,7 +28,6 @@ async fn get_program(api: &ApiType, image_id: ImageId) -> Result<Option<Vec<u8>>
 async fn get_program_args(
 	api: &ApiType,
 	image_id: ImageId,
-	// ) -> Result<Option<Vec<Vec<u8>>>, subxt::Error> {
 ) -> Result<Option<Vec<Vec<u32>>>, subxt::Error> {
 	let query = substrate_node::storage().prover_mgmt().proof_requests(&image_id);
 
