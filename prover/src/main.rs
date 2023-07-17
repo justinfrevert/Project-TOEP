@@ -1,36 +1,16 @@
-use crate::substrate_node::{
-	prover_mgmt::Event, runtime_types::bounded_collections::bounded_vec::BoundedVec,
-};
 use clap::Parser;
-use codec::Decode;
 use futures_util::StreamExt;
-use methods::{PROVE_ELF, PROVE_ID};
-use risc0_zkvm::{
-	prove::Prover, serde::to_vec, Executor, ExecutorEnv, MemoryImage, Program, SegmentReceipt,
-	SessionReceipt, MEM_SIZE, PAGE_SIZE,
-};
-use std::{fs, time::Duration};
+use risc0_zkvm::{serde::to_vec, Executor, ExecutorEnv, SegmentReceipt, SessionReceipt};
 use subxt::{
 	config::WithExtrinsicParams,
-	events::StaticEvent,
-	ext::{
-		scale_value::Composite,
-		sp_core::{
-			sr25519::{Pair as SubxtPair, Public, Signature},
-			Pair as SubxtPairT,
-		},
-		sp_runtime::{traits::Verify, AccountId32},
-	},
+	ext::sp_core::{sr25519::Pair as SubxtPair, Pair as SubxtPairT},
 	tx::{BaseExtrinsicParams, PairSigner, PlainTip},
 	OnlineClient, PolkadotConfig, SubstrateConfig,
 };
-use tokio::task;
 
 // // Runtime types, etc
 #[subxt::subxt(runtime_metadata_path = "./metadata.scale")]
 pub mod substrate_node {}
-
-use substrate_node::runtime_types::frame_system::AccountInfo;
 
 type ApiType = OnlineClient<
 	WithExtrinsicParams<SubstrateConfig, BaseExtrinsicParams<SubstrateConfig, PlainTip>>,
@@ -38,36 +18,49 @@ type ApiType = OnlineClient<
 
 type ImageId = [u32; 8];
 
-async fn get_program(
-	api: &ApiType,
-	image_id: ImageId,
-	// ) -> Result<Option<BoundedVec<u8>>, subxt::Error> {
-) -> Result<Option<Vec<u8>>, subxt::Error> {
+async fn get_program(api: &ApiType, image_id: ImageId) -> Result<Option<Vec<u8>>, subxt::Error> {
 	let query = substrate_node::storage().prover_mgmt().programs(&image_id);
 
 	let query_result = api.storage().fetch(&query, None).await;
 	query_result
 }
 
-// Prove the program which was given as serialized bytes
-fn prove_program_execution(onchain_program: Vec<u8>) -> SessionReceipt {
-	// let program = Program::load_elf(PROVE_ELF, MEM_SIZE as u32).unwrap();
-	// let image = MemoryImage::new(&program, PAGE_SIZE as u32).unwrap();
-	let env = ExecutorEnv::builder()
-		// TODO: conditionally add inputs if there are any args
-		.build();
+async fn get_program_args(
+	api: &ApiType,
+	image_id: ImageId,
+	// ) -> Result<Option<Vec<Vec<u8>>>, subxt::Error> {
+) -> Result<Option<Vec<Vec<u32>>>, subxt::Error> {
+	let query = substrate_node::storage().prover_mgmt().proof_requests(&image_id);
 
-	let mut executor = Executor::from_elf(
-		env.clone(),
-		//  &image
-		bincode::deserialize(&onchain_program).unwrap(),
-	)
-	.unwrap();
+	let query_result = api.storage().fetch(&query, None).await;
+	query_result
+}
+
+// Prove the program which was given as serialized bytes
+fn prove_program_execution(onchain_program: Vec<u8>, args: Vec<Vec<u32>>) -> SessionReceipt {
+	// let mut env_builder =  ExecutorEnv::builder();
+
+	// env_builder.input
+
+	let mut envbuilder = ExecutorEnv::builder();
+
+	args.iter().for_each(|a| {
+		envbuilder.add_input(a);
+	});
+	// .add_input(&to_vec(&17_u64).unwrap())
+	// .add_input(&to_vec(&23_u64).unwrap())
+	// TODO: conditionally add inputs if there are any args
+
+	let env = envbuilder.build();
+
+	let mut executor =
+		Executor::from_elf(env.clone(), bincode::deserialize(&onchain_program).unwrap()).unwrap();
 
 	println!("Starting session");
 	let session = executor.run().unwrap();
+	println!("Now proving execution");
 	let receipt = session.prove().unwrap();
-	println!("Done");
+	println!("Done proving");
 	receipt
 }
 
@@ -105,7 +98,7 @@ async fn upload_proof(api: ApiType, image_id: ImageId, session_receipt: SessionR
 		.wait_for_finalized()
 		.await
 		.unwrap();
-	println!("Done");
+	println!("Proof uploaded");
 }
 
 #[derive(Parser, Debug)]
@@ -121,7 +114,6 @@ async fn main() {
 	let args = Args::parse();
 
 	let hex_decoded = hex::decode(&args.image_id).unwrap();
-
 	let image_id = bincode::deserialize(&hex_decoded).unwrap();
 
 	// image id
@@ -134,8 +126,16 @@ async fn main() {
 	.unwrap();
 	// listen_for_event_then_prove().await;
 	let program = get_program(&api, image_id).await;
-	let session_receipt =
-		prove_program_execution(program.unwrap().expect("Onchain program should exist"));
+	let args = get_program_args(&api, image_id).await;
+
+	println!("Looking for args  {:?}", vec![&to_vec(&17_u64).unwrap(), &to_vec(&23_u64).unwrap()]);
+	println!("Got args  {:?}", args);
+
+	let session_receipt = prove_program_execution(
+		program.unwrap().expect("Onchain program should exist"),
+		args.unwrap()
+			.expect("Args were not provided, or request was not made for program proof"),
+	);
 
 	upload_proof(api, image_id, session_receipt).await;
 }

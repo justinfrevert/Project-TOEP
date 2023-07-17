@@ -21,7 +21,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{inherent::Vec, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
-	use risc0_zkvm::{serde::from_slice, sha::Digest, SegmentReceipt, SessionReceipt};
+	use risc0_zkvm::{SegmentReceipt, SessionReceipt};
 
 	type ImageId = [u32; 8];
 
@@ -44,15 +44,20 @@ pub mod pallet {
 		type MaxProofLength: Get<u32>;
 	}
 
-	// #[pallet::storage]
-	// /// Store for all programs
-	// pub(super) type Programs<T: Config> =
-	// 	StorageMap<_, Blake2_128Concat, ImageId, BoundedVec<u8, T::MaxProgramLength>, OptionQuery>;
-
 	#[pallet::storage]
 	/// Store for all programs
 	pub(super) type Programs<T: Config> =
 		StorageMap<_, Blake2_128Concat, ImageId, Vec<u8>, OptionQuery>;
+
+	#[pallet::storage]
+	pub(super) type ProofRequests<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		ImageId,
+		Vec<Vec<u32>>,
+		// Vec<u8>,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	/// Store Some(proof), if the program's proof was verified
@@ -64,7 +69,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		ProofRequested {
 			image_id: ImageId,
-			args: BoundedVec<u8, T::MaxArgsLength>,
+			args: Vec<Vec<u32>>,
 		},
 		/// A program was uploaded
 		ProgramUploaded {
@@ -99,7 +104,6 @@ pub mod pallet {
 			// Todo: find how to verify image id
 			image_id: ImageId,
 			// The bincode-serialized program
-			// TODO: program: BoundedVec<u8, T::MaxProgramLength>,
 			program: Vec<u8>,
 		) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
@@ -117,10 +121,11 @@ pub mod pallet {
 		pub fn request_proof(
 			origin: OriginFor<T>,
 			image_id: ImageId,
-			args: BoundedVec<u8, T::MaxArgsLength>,
+			args: Vec<Vec<u32>>,
 		) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
 
+			ProofRequests::<T>::insert(image_id, args.clone());
 			Self::deposit_event(Event::ProofRequested { image_id, args });
 
 			Ok(())

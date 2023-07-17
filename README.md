@@ -1,15 +1,25 @@
-# Substrate Prover Service
+# Substrate ZK-provable Offchain Programs Exchange
 
-The Substrate prover is an offchain, long-running service whose primary responsibility is to prove arbitrary programs which are stored onchain. This one expects to be paired with a Substrate chain which has a specific pallet, `prover_mgmt`. The substrate node, including runtime and pallets lives in `./node`.
+Project which features onchain tracking of offchain Rust programs and their execution, which is proven using Risc0 and whose zkSTARK proofs are verified onchain. Additionally, the project features proof request and fulfillment functionality.
 
-The prover listens for the ProofRequested event emitted from the `prover_mgmt` pallet. If received, it takes any arguments passed to it and starts to prove the requested image id. Once done, it should call back to the pallet with the image id and the proof. The prover lives in `./prover`.
+### Prover
+This component is for network participants who wish to provide proving functionality for programs, which earns them rewards. Provers identify programs uploaded to the chain which have also received a request for proof.
 
+Anyone can operate this component. This is a CLI application which requests some `image_id` that represents an onchain program. If the program is received, the prover begins a session for the program and proves its execution, outputting a STARK proof. This proof is then uploaded. verified onchain in the pallet, and stored.
 
-## Usage instructions:
+### Examples
+Examples demonstrating how to write an offchain program are included in `./examples`. The current example also uploads the program to the chain, and requests a proof for it.
+
+## Usage instructions
+This walks through an example workflow which consists of:
+1. A program developer writes their program and uploads it to the chain
+2. In this case, the program developer also submits a request for a proof to be generated for their program
+3. A prover notes the request, starts the proving process, generates the proof, and submits it to the chain, fulfilling the request.
+
 ### Start the chain
 Start the chain by building the code `cargo build --release`, and starting the node: `./target/release/node-template --dev`.
 
-### Upload/Write your own program
+### Upload program
 See `./examples` for an example of a provable program. To test uploading the program to the chain, run:
 ```cargo run```
 It will return the `image id`, which is handy for proving later
