@@ -50,14 +50,8 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, ImageId, Vec<u8>, OptionQuery>;
 
 	#[pallet::storage]
-	pub(super) type ProofRequests<T: Config> = StorageMap<
-		_,
-		Blake2_128Concat,
-		ImageId,
-		Vec<Vec<u32>>,
-		// Vec<u8>,
-		OptionQuery,
-	>;
+	pub(super) type ProofRequests<T: Config> =
+		StorageMap<_, Blake2_128Concat, ImageId, Vec<Vec<u32>>, OptionQuery>;
 
 	#[pallet::storage]
 	/// Store Some(proof), if the program's proof was verified

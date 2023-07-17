@@ -120,7 +120,6 @@ async fn main() {
 	let program = get_program(&api, image_id).await;
 	let args = get_program_args(&api, image_id).await;
 
-	println!("Looking for args  {:?}", vec![&to_vec(&17_u64).unwrap(), &to_vec(&23_u64).unwrap()]);
 	println!("Passing args to program :{:?}", args);
 
 	let session_receipt = prove_program_execution(
