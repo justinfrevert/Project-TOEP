@@ -1,6 +1,12 @@
-# Substrate ZK-provable Offchain Programs Exchange
+# Substrate TOEP
+T - Trustless 
+O - Offchain
+E - Executable 
+P - Programs
 
-Project which features onchain tracking of offchain Rust programs and their execution, which is proven using Risc0 and whose zkSTARK proofs are verified onchain. Additionally, the project features proof request and fulfillment functionality.
+ZK-provable Offchain Programs
+
+Project which features onchain tracking of offchain Rust programs and their execution, which is proven using Risc0 and whose zkSTARK proofs are verified onchain.
 
 ### Prover
 This component is for network participants who wish to provide proving functionality for programs, which earns them rewards. Provers identify programs uploaded to the chain which have also received a request for proof.
