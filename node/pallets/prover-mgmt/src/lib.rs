@@ -19,7 +19,7 @@ pub use weights::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{inherent::Vec, pallet_prelude::*};
+	use frame_support::{inherent::Vec, traits::{BalanceStatus, Currency, ReservableCurrency}, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 	use risc0_zkvm::{SegmentReceipt, SessionReceipt};
 
@@ -30,9 +30,14 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	pub type BalanceOf<T> =
+	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		type Currency: Currency<<Self as frame_system::Config>::AccountId>
+		+ ReservableCurrency<Self::AccountId>;
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Type representing the weight of this pallet
@@ -44,14 +49,30 @@ pub mod pallet {
 		type MaxProofLength: Get<u32>;
 	}
 
+
+	#[derive(Clone, Debug, Decode, Encode, PartialEq, Eq, TypeInfo)]
+	#[scale_info(skip_type_params(T))]
+	// Information related to a requst for proving of a program
+	pub struct ProofRequest<T: Config> {
+		requester: T::AccountId,
+		reward: BalanceOf<T>,
+		args: Vec<Vec<u32>>,
+	}
+
 	#[pallet::storage]
 	/// Store for all programs
 	pub(super) type Programs<T: Config> =
 		StorageMap<_, Blake2_128Concat, ImageId, Vec<u8>, OptionQuery>;
 
+	// #[pallet::storage]
+	// /// Requests which have been submitted for `ImageId`, unique per set of args + image id
+	// pub(super) type ProofRequests<T: Config> =
+	// 	StorageMap<_, Blake2_128Concat, ImageId, Vec<Vec<u32>>, OptionQuery>;
+
 	#[pallet::storage]
+	/// Requests which have been submitted for `ImageId`, unique per set of args + image id
 	pub(super) type ProofRequests<T: Config> =
-		StorageMap<_, Blake2_128Concat, ImageId, Vec<Vec<u32>>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, ImageId, ProofRequest<T>, OptionQuery>;
 
 	#[pallet::storage]
 	/// Store Some(proof), if the program's proof was verified
@@ -71,9 +92,10 @@ pub mod pallet {
 		},
 	}
 
-	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T> {
+		/// An attempt was made to fulfill a submitter's own proof request
+		AttemptedFullfilmentOfOwnRequest,
 		/// Tried to upload a program which already exists
 		ProgramAlreadyExists,
 		/// Tried to verify a proof but the program did not exist
@@ -116,10 +138,18 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			image_id: ImageId,
 			args: Vec<Vec<u32>>,
+			reward: BalanceOf<T>
 		) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 
-			ProofRequests::<T>::insert(image_id, args.clone());
+			T::Currency::reserve(&who, reward)?;
+
+			ProofRequests::<T>::insert(image_id, ProofRequest {
+				requester: who,
+				reward,
+				args: args.clone()
+			});
+
 			Self::deposit_event(Event::ProofRequested { image_id, args });
 
 			Ok(())
@@ -135,9 +165,19 @@ pub mod pallet {
 			receipt_data: Vec<(Vec<u32>, u32)>,
 			journal: Vec<u8>,
 		) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
-
+			let who = ensure_signed(origin)?;
 			ensure!(Programs::<T>::get(image_id).is_some(), Error::<T>::ProgramDoesNotExist);
+
+			// If a request for proof of the program exists, the submitter needs to receive the designated reward
+			if let Some(proof_request) = ProofRequests::<T>::get(image_id) {
+				ensure!(&who != &proof_request.requester, Error::<T>::AttemptedFullfilmentOfOwnRequest);
+				T::Currency::repatriate_reserved(
+					&proof_request.requester,
+					&who,
+					proof_request.reward,
+					BalanceStatus::Free,
+				);
+			}
 
 			let segments: Vec<SegmentReceipt> = receipt_data
 				.clone()

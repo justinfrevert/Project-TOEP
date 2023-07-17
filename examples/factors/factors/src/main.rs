@@ -65,14 +65,17 @@ async fn main() {
 		// methods
 		let args = vec![to_vec(&17_u64).unwrap(), to_vec(&23_u64).unwrap()];
 
+		// The reward for the correct proof submission
+		let reward: u128 = 42_000_000_000_000;
+
 		println!(
-			"Requesting proof of program {:?} with args: {:?}, {:?}",
-			FACTORS_ID, arg_1, arg_2
+			"Requesting proof of program {:?} with args: {:?}, {:?} and reward amount: {:?}",
+			serialized_program, arg_1, arg_2, reward
 		);
 
 		api.tx()
 			.sign_and_submit_then_watch_default(
-				&substrate_node::tx().prover_mgmt().request_proof(FACTORS_ID, args),
+				&substrate_node::tx().prover_mgmt().request_proof(FACTORS_ID, args, reward),
 				&signer,
 			)
 			.await

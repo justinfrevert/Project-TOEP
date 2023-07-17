@@ -274,6 +274,7 @@ parameter_types! {
 
 /// Configure the pallet-template in pallets/template.
 impl pallet_prover_mgmt::Config for Runtime {
+	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_prover_mgmt::weights::SubstrateWeight<Runtime>;
 	type MaxArgsLength = MaxArgsLength;
