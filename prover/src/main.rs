@@ -38,18 +38,10 @@ async fn get_program_args(
 
 // Prove the program which was given as serialized bytes
 fn prove_program_execution(onchain_program: Vec<u8>, args: Vec<Vec<u32>>) -> SessionReceipt {
-	// let mut env_builder =  ExecutorEnv::builder();
-
-	// env_builder.input
-
 	let mut envbuilder = ExecutorEnv::builder();
-
 	args.iter().for_each(|a| {
 		envbuilder.add_input(a);
 	});
-	// .add_input(&to_vec(&17_u64).unwrap())
-	// .add_input(&to_vec(&23_u64).unwrap())
-	// TODO: conditionally add inputs if there are any args
 
 	let env = envbuilder.build();
 
@@ -129,7 +121,7 @@ async fn main() {
 	let args = get_program_args(&api, image_id).await;
 
 	println!("Looking for args  {:?}", vec![&to_vec(&17_u64).unwrap(), &to_vec(&23_u64).unwrap()]);
-	println!("Got args  {:?}", args);
+	println!("Passing args to program :{:?}", args);
 
 	let session_receipt = prove_program_execution(
 		program.unwrap().expect("Onchain program should exist"),
