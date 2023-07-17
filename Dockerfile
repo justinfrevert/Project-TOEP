@@ -1,7 +1,5 @@
 FROM docker.io/paritytech/ci-linux:production as builder
 LABEL maintainer="vivekvpandya@gmail.com"
-# RUN useradd -ms /bin/bash newuser
-# USER newuser
 WORKDIR /node-template
 COPY . .
 RUN cargo build --release
@@ -34,4 +32,4 @@ USER node-dev
 EXPOSE 30333 9933 9944 9615
 VOLUME ["/chain-data"]
 
-# ENTRYPOINT ["/usr/local/bin/node-template"]
+ENTRYPOINT ["/usr/local/bin/node-template"]
