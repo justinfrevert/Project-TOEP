@@ -1,6 +1,5 @@
 use clap::Parser;
-use futures_util::StreamExt;
-use risc0_zkvm::{serde::to_vec, Executor, ExecutorEnv, SegmentReceipt, SessionReceipt};
+use risc0_zkvm::{Executor, ExecutorEnv, SegmentReceipt, SessionReceipt};
 use subxt::{
 	config::WithExtrinsicParams,
 	ext::sp_core::{sr25519::Pair as SubxtPair, Pair as SubxtPairT},
@@ -107,14 +106,8 @@ async fn main() {
 	let hex_decoded = hex::decode(&args.image_id).unwrap();
 	let image_id = bincode::deserialize(&hex_decoded).unwrap();
 
-	// image id
 	let api = OnlineClient::<PolkadotConfig>::new().await.unwrap();
-	// This is the well-known //Alice key. Don't use in a real application
-	let restored_key = SubxtPair::from_string(
-		"0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a",
-		None,
-	)
-	.unwrap();
+
 	// listen_for_event_then_prove().await;
 	let program = get_program(&api, image_id).await;
 	let args = get_program_args(&api, image_id).await;

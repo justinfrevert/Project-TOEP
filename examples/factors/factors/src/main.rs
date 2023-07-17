@@ -1,12 +1,10 @@
 use clap::Parser;
-use codec::Encode;
 use methods::{FACTORS_ELF, FACTORS_ID};
-use risc0_zkvm::{serde::to_vec, Executor, ExecutorEnv, SegmentReceipt, SessionReceipt};
+use risc0_zkvm::serde::to_vec;
 use subxt::{
-	config::WithExtrinsicParams,
 	ext::sp_core::{sr25519::Pair as SubxtPair, Pair as SubxtPairT},
-	tx::{BaseExtrinsicParams, PairSigner, PlainTip},
-	OnlineClient, PolkadotConfig, SubstrateConfig,
+	tx::PairSigner,
+	OnlineClient, PolkadotConfig,
 };
 
 // Runtime types, etc
