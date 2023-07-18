@@ -114,11 +114,14 @@ async fn main() {
 	let program = get_program(&api, image_id).await;
 	let proof_request = get_proof_request(&api, image_id).await;
 
-	let program_args = proof_request.unwrap()
-	.expect("Args were not provided, or request was not made for program proof")
-	.args;
+	println!("Proof request for given image id: {:?}", &proof_request);
 
-	println!("Passing args to program :{:?}", proof_request);
+	let program_args = proof_request
+		.unwrap()
+		.expect("Args were not provided, or request was not made for program proof")
+		.args;
+
+	println!("Passing args to program :{:?}", program_args);
 
 	let session_receipt = prove_program_execution(
 		program.unwrap().expect("Onchain program should exist"),

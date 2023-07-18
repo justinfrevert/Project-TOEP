@@ -69,8 +69,8 @@ async fn main() {
 		let reward: u128 = 42_000_000_000_000;
 
 		println!(
-			"Requesting proof of program {:?} with args: {:?}, {:?} and reward amount: {:?}",
-			serialized_program, arg_1, arg_2, reward
+			"Requesting proof of with program args: {:?}, {:?} and reward amount: {:?}",
+			arg_1, arg_2, reward
 		);
 
 		api.tx()
