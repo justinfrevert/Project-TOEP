@@ -14,7 +14,10 @@ Project which features onchain tracking of offchain Rust programs and their exec
 - Write zk-proven programs in plain Rust
 - Privacy-preserving
 - zk prover infrastructure, incentivised through proof market
-- (Future) Composability of proofs/programs 🤯
+- (Future) Composability of proofs/programs with recursive proofs 🤯
+
+
+![Alt text](./diagrams/diagram.png "diagram")
 
 ## Project Structure
 ```
