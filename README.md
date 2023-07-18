@@ -61,5 +61,5 @@ Prover nodes can fulfill onchain requests for proofs. The included proving cli a
 cargo run -- --image-id {your image id}
 
 ### Use through docker image
-`docke run -dit --net=host docker.io/library/tope`
+`docker run -dit --net=host docker.io/library/tope`
 
