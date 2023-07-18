@@ -92,8 +92,6 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// An attempt was made to fulfill a submitter's own proof request
-		AttemptedFullfilmentOfOwnRequest,
 		/// Tried to upload a program which already exists
 		ProgramAlreadyExists,
 		/// Tried to verify a proof but the program did not exist
@@ -168,10 +166,6 @@ pub mod pallet {
 			// If a request for proof of the program exists, the submitter needs to receive the
 			// designated reward
 			if let Some(proof_request) = ProofRequests::<T>::get(image_id) {
-				ensure!(
-					&who != &proof_request.requester,
-					Error::<T>::AttemptedFullfilmentOfOwnRequest
-				);
 				T::Currency::repatriate_reserved(
 					&proof_request.requester,
 					&who,
