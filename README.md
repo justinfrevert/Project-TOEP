@@ -61,5 +61,9 @@ Prover nodes can fulfill onchain requests for proofs. The included proving cli a
 cargo run -- --image-id {your image id}
 
 ### Use through docker image
-`docker run -dit --net=host docker.io/library/tope`
+1. Download docker image from this github repo.
+2. `bzip2 -d tope.tar.bz2`
+3. `docker image load --input tope.tar`
+4. `docker run -dit --net=host tope`
+5. `connect polkadot.js app on 127.0.0.1:9944`
 
