@@ -7,6 +7,8 @@ use subxt::{
 	OnlineClient, PolkadotConfig, SubstrateConfig,
 };
 
+use crate::substrate_node::runtime_types::pallet_prover_mgmt::pallet::ProofRequest;
+
 // // Runtime types, etc
 #[subxt::subxt(runtime_metadata_path = "./metadata.scale")]
 pub mod substrate_node {}
@@ -24,10 +26,10 @@ async fn get_program(api: &ApiType, image_id: ImageId) -> Result<Option<Vec<u8>>
 	query_result
 }
 
-async fn get_program_args(
+async fn get_proof_request(
 	api: &ApiType,
 	image_id: ImageId,
-) -> Result<Option<Vec<Vec<u32>>>, subxt::Error> {
+) -> Result<Option<ProofRequest>, subxt::Error> {
 	let query = substrate_node::storage().prover_mgmt().proof_requests(&image_id);
 
 	let query_result = api.storage().fetch(&query, None).await;
@@ -61,10 +63,10 @@ async fn upload_proof(api: ApiType, image_id: ImageId, session_receipt: SessionR
 		.map(|SegmentReceipt { seal, index }| (seal, index))
 		.collect();
 
-	// This is the well-known //Alice key. TODO: Use the key passed through cli to represent the
+	// This is the well-known //Bob key. TODO: Use the key passed through cli to represent the
 	// prover
 	let restored_key = SubxtPair::from_string(
-		"0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a",
+		"0x398f0c28f98885e046333d4a41c19cee4c37368a9832c6502f6cfd182e2aef89",
 		None,
 	)
 	.unwrap();
@@ -101,23 +103,26 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
-	let args = Args::parse();
+	let cli_args = Args::parse();
 
-	let hex_decoded = hex::decode(&args.image_id).unwrap();
+	let hex_decoded = hex::decode(&cli_args.image_id).unwrap();
 	let image_id = bincode::deserialize(&hex_decoded).unwrap();
 
 	let api = OnlineClient::<PolkadotConfig>::new().await.unwrap();
 
 	// listen_for_event_then_prove().await;
 	let program = get_program(&api, image_id).await;
-	let args = get_program_args(&api, image_id).await;
+	let proof_request = get_proof_request(&api, image_id).await;
 
-	println!("Passing args to program :{:?}", args);
+	let program_args = proof_request.unwrap()
+	.expect("Args were not provided, or request was not made for program proof")
+	.args;
+
+	println!("Passing args to program :{:?}", proof_request);
 
 	let session_receipt = prove_program_execution(
 		program.unwrap().expect("Onchain program should exist"),
-		args.unwrap()
-			.expect("Args were not provided, or request was not made for program proof"),
+		program_args,
 	);
 
 	upload_proof(api, image_id, session_receipt).await;
