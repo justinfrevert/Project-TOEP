@@ -177,7 +177,7 @@ pub mod pallet {
 					&who,
 					proof_request.reward,
 					BalanceStatus::Free,
-				);
+				)?;
 			}
 
 			let segments: Vec<SegmentReceipt> = receipt_data
