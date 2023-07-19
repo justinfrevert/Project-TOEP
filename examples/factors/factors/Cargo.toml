@@ -1,5 +1,5 @@
 [package]
-name = "prover-host"
+name = "factors-host"
 version = "0.1.0"
 edition = "2021"
 

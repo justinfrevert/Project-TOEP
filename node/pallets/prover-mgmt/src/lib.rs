@@ -84,6 +84,8 @@ pub mod pallet {
 			image_id: ImageId,
 			args: Vec<Vec<u32>>,
 		},
+		/// Proof was successfully verified and will be stored
+		ProofVerified,
 		/// A program was uploaded
 		ProgramUploaded {
 			image_id: ImageId,
@@ -182,6 +184,8 @@ pub mod pallet {
 
 			let receipt = SessionReceipt { segments, journal };
 			receipt.verify(image_id).map_err(|_| Error::<T>::ProofNotVerified)?;
+
+			Self::deposit_event(Event::<T>::ProofVerified);
 
 			// TODO: Also see if there is some image id verification
 			ProofsByImage::<T>::insert(image_id, receipt_data);
