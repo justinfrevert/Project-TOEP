@@ -97,7 +97,7 @@ struct Args {
 	#[arg(short, long)]
 	image_id: String,
 	/// The Secret key of prover to sign and submit proof to chain.
-	#[arg(short, long, env)]
+	#[arg(env)]
 	signing_key: String,
 }
 
