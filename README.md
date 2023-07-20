@@ -58,7 +58,7 @@ It will return the `image id`, which is handy for proving later
 ### Prover
 Prover nodes can fulfill onchain requests for proofs. The included proving cli application in `./prover` allows someone to pass an `image_id` of an onchain program, retrieve it, prove it, and upload the resulting proof to fulfill the request. To test, pass a hex-encoded, bincode-serialized image id(just copy the output from the `./examples` local execution)
 ```
-cargo run -- --image-id {your image id}
+cargo run -- --image-id {your image id} --signing-key {your signing key}
 ```
 
 ### Docker Instructions

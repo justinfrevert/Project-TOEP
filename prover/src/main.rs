@@ -20,20 +20,18 @@ type ApiType = OnlineClient<
 type ImageId = [u32; 8];
 
 async fn get_program(api: &ApiType, image_id: ImageId) -> Result<Option<Vec<u8>>, subxt::Error> {
-	let query = substrate_node::storage().prover_mgmt().programs(&image_id);
+	let query = substrate_node::storage().prover_mgmt().programs(image_id);
 
-	let query_result = api.storage().fetch(&query, None).await;
-	query_result
+	api.storage().fetch(&query, None).await
 }
 
 async fn get_proof_request(
 	api: &ApiType,
 	image_id: ImageId,
 ) -> Result<Option<ProofRequest>, subxt::Error> {
-	let query = substrate_node::storage().prover_mgmt().proof_requests(&image_id);
+	let query = substrate_node::storage().prover_mgmt().proof_requests(image_id);
 
-	let query_result = api.storage().fetch(&query, None).await;
-	query_result
+	api.storage().fetch(&query, None).await
 }
 
 // Prove the program which was given as serialized bytes
@@ -56,20 +54,19 @@ fn prove_program_execution(onchain_program: Vec<u8>, args: Vec<Vec<u32>>) -> Ses
 	receipt
 }
 
-async fn upload_proof(api: ApiType, image_id: ImageId, session_receipt: SessionReceipt) {
+async fn upload_proof(
+	api: ApiType,
+	image_id: ImageId,
+	session_receipt: SessionReceipt,
+	signing_key: String,
+) {
 	let substrate_session_receipt = session_receipt
 		.segments
 		.into_iter()
 		.map(|SegmentReceipt { seal, index }| (seal, index))
 		.collect();
 
-	// This is the well-known //Bob key. TODO: Use the key passed through cli to represent the
-	// prover
-	let restored_key = SubxtPair::from_string(
-		"0x398f0c28f98885e046333d4a41c19cee4c37368a9832c6502f6cfd182e2aef89",
-		None,
-	)
-	.unwrap();
+	let restored_key = SubxtPair::from_string(&signing_key, None).unwrap();
 
 	let signer = PairSigner::new(restored_key);
 
@@ -99,6 +96,9 @@ struct Args {
 	/// The hex-encoded, bincode-serialized image id of the onchain program to prove
 	#[arg(short, long)]
 	image_id: String,
+	/// The Secret key of prover to sign and submit proof to chain.
+	#[arg(short, long, env)]
+	signing_key: String,
 }
 
 #[tokio::main]
@@ -128,5 +128,5 @@ async fn main() {
 		program_args,
 	);
 
-	upload_proof(api, image_id, session_receipt).await;
+	upload_proof(api, image_id, session_receipt, cli_args.signing_key).await;
 }
